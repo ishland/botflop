@@ -6,18 +6,8 @@
 # wake_up_inactive_flying_monsters_every = int(spigot["world-settings"]["default"]["entity-activation-range"]["wake-up-inactive"]["flying-monsters-every"])
 # wake_up_inactive_monsters_every = int(spigot["world-settings"]["default"]["entity-activation-range"]["wake-up-inactive"]["monsters-every"])
 version: "1.16.5"
-servers:
-- name: "Yatopia"
-  prefix: "❌"
-  value: |-
-    Yatopia is prone to bugs.
-    Consider using [Purpur](https://ci.pl3x.net/job/Purpur/).
-- name: "Paper"
-  prefix: "||❌"
-  suffix: "||"
-  value: |-
-    ||Purpur has more optimizations but is generally less supported. 
-    Consider using [Purpur](https://ci.pl3x.net/job/Purpur/).||
+check_view_distance: false
+servers: []
 plugins:
   paper:
     ClearLag:

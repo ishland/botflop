@@ -15,6 +15,8 @@ with open("cogs/timings_check.yml", 'r', encoding="utf8") as stream:
 
 VERSION_REGEX = re.compile(r"\d+\.\d+\.\d+")
 
+request_session = requests.Session()
+
 
 class Timings(commands.Cog):
 
@@ -40,7 +42,7 @@ class Timings(commands.Cog):
             if word.startswith("https://www.spigotmc.org/go/timings?url=") or word.startswith(
                     "https://timings.spigotmc.org/?url="):
                 embed_var.add_field(name="❌ Spigot",
-                                    value="Spigot timings have limited information. Switch to [Purpur](https://purpur.pl3x.net/downloads) for better timings analysis.")
+                                    value="Spigot timings have limited information. Switch to [Yatopia](https://yatopiamc.org/download.html) for better timings analysis.")
                 embed_var.url = word
                 await message.reply(embed=embed_var)
                 return
@@ -57,8 +59,8 @@ class Timings(commands.Cog):
         timings_json = timings_host + "data.php?id=" + timings_id
         timings_url_raw = timings_url + "&raw=1"
 
-        request_raw = requests.get(timings_url_raw).json()
-        request = requests.get(timings_json).json()
+        request_raw = request_session.get(timings_url_raw, timeout=5).json()
+        request = request_session.get(timings_json, timeout=5).json()
         if request is None or request_raw is None:
             embed_var.add_field(name="❌ Invalid report",
                                 value="Create a new timings report.")
@@ -93,7 +95,7 @@ class Timings(commands.Cog):
                     request["timingsMaster"]["system"]["timingcost"])
                 if timing_cost > 300:
                     embed_var.add_field(name="❌ Timingcost",
-                                        value=f"Your timingcost is {timing_cost}. Your cpu is overloaded and/or slow. Find a [better host](https://www.birdflop.com).")
+                                        value=f"Your timingcost is {timing_cost}. Your cpu is overloaded and/or slow. Find a better host.")
             except KeyError as key:
                 print("Missing: " + str(key))
 
@@ -114,9 +116,6 @@ class Timings(commands.Cog):
                         embed_var.add_field(name="❌ Java " + java_version,
                                             value="If you are going to use ZGC, you should also use Java 14+.")
                 elif "-Daikars.new.flags=true" in flags:
-                    if "-XX:+PerfDisableSharedMem" not in flags:
-                        embed_var.add_field(name="❌ Outdated Flags",
-                                            value="Add `-XX:+PerfDisableSharedMem` to flags.")
                     if "XX:G1MixedGCCountTarget=4" not in flags:
                         embed_var.add_field(name="❌ Outdated Flags",
                                             value="Add `-XX:G1MixedGCCountTarget=4` to flags.")
@@ -162,10 +161,10 @@ class Timings(commands.Cog):
                 cpu = int(request["timingsMaster"]["system"]["cpu"])
                 if cpu == 1:
                     embed_var.add_field(name="❌ Threads",
-                                        value=f"You have only {cpu} thread. Find a [better host](https://www.birdflop.com).")
+                                        value=f"You have only {cpu} thread. Find a better host.")
                 if cpu == 2:
                     embed_var.add_field(name="❌ Threads",
-                                        value=f"You have only {cpu} threads. Find a [better host](https://www.birdflop.com).")
+                                        value=f"You have only {cpu} threads. Find a better host.")
             except KeyError as key:
                 print("Missing: " + str(key))
 
@@ -189,6 +188,7 @@ class Timings(commands.Cog):
             paper = request["timingsMaster"]["config"]["paper"] if "paper" in request["timingsMaster"]["config"] else None
             tuinity = request["timingsMaster"]["config"]["tuinity"] if "tuinity" in request["timingsMaster"]["config"] else None
             purpur = request["timingsMaster"]["config"]["purpur"] if "purpur" in request["timingsMaster"]["config"] else None
+            yatopia = request["timingsMaster"]["config"]["yatopia"] if "yatopia" in request["timingsMaster"]["config"] else None
             if not YAML_ERROR:
                 if "plugins" in TIMINGS_CHECK:
                     for server_name in TIMINGS_CHECK["plugins"]:
@@ -203,14 +203,14 @@ class Timings(commands.Cog):
                                                 **create_field(stored_plugin))
                                         else:
                                             eval_field(embed_var, stored_plugin, plugin_name, plugins,
-                                                       server_properties, bukkit, spigot, paper, tuinity, purpur)
+                                                       server_properties, bukkit, spigot, paper, tuinity, purpur, yatopia)
                 if "config" in TIMINGS_CHECK:
                     for config_name in TIMINGS_CHECK["config"]:
                         config = TIMINGS_CHECK["config"][config_name]
                         for option_name in config:
                             option = config[option_name]
                             eval_field(embed_var, option, option_name, plugins, server_properties, bukkit,
-                                       spigot, paper, tuinity, purpur)
+                                       spigot, paper, tuinity, purpur, yatopia)
             else:
                 embed_var.add_field(name="Error loading YAML file",
                                     value=YAML_ERROR)
@@ -232,27 +232,28 @@ class Timings(commands.Cog):
             except KeyError as key:
                 print("Missing: " + str(key))
 
-            try:
-                using_tweaks = "ViewDistanceTweaks" in plugins
-                if not using_tweaks:
-                    worlds = request_raw["worlds"]
-                    for world in worlds:
-                        tvd = int(request_raw["worlds"]
-                                  [world]["ticking-distance"])
-                        ntvd = int(request_raw["worlds"]
-                                   [world]["notick-viewdistance"])
-                        if ntvd <= tvd and tvd >= 5:
-                            if spigot["world-settings"]["default"]["view-distance"] == "default":
-                                embed_var.add_field(name="❌ no-tick-view-distance",
-                                                    value=f"Set in [paper.yml](http://bit.ly/paperconf). Recommended: {tvd}. "
-                                                          f"And reduce view-distance from default ({tvd}) in [spigot.yml](http://bit.ly/spiconf). Recommended: 4.")
-                            else:
-                                embed_var.add_field(name="❌ no-tick-view-distance",
-                                                    value=f"Set in [paper.yml](http://bit.ly/paperconf). Recommended: {tvd}. "
-                                                          f"And reduce view-distance from {tvd} in [spigot.yml](http://bit.ly/spiconf). Recommended: 4.")
-                            break
-            except KeyError as key:
-                print("Missing: " + str(key))
+            if TIMINGS_CHECK["check_view_distance"]:
+                try:
+                    using_tweaks = "ViewDistanceTweaks" in plugins
+                    if not using_tweaks:
+                        worlds = request_raw["worlds"]
+                        for world in worlds:
+                            tvd = int(request_raw["worlds"]
+                                      [world]["ticking-distance"])
+                            ntvd = int(request_raw["worlds"]
+                                       [world]["notick-viewdistance"])
+                            if ntvd <= tvd and tvd >= 5:
+                                if spigot["world-settings"]["default"]["view-distance"] == "default":
+                                    embed_var.add_field(name="❌ no-tick-view-distance",
+                                                        value=f"Set in [paper.yml](http://bit.ly/paperconf). Recommended: {tvd}. "
+                                                        f"And reduce view-distance from default ({tvd}) in [spigot.yml](http://bit.ly/spiconf). Recommended: 4.")
+                                else:
+                                    embed_var.add_field(name="❌ no-tick-view-distance",
+                                                        value=f"Set in [paper.yml](http://bit.ly/paperconf). Recommended: {tvd}. "
+                                                        f"And reduce view-distance from {tvd} in [spigot.yml](http://bit.ly/spiconf). Recommended: 4.")
+                                break
+                except KeyError as key:
+                    print("Missing: " + str(key))
 
             try:
                 normal_ticks = request["timingsMaster"]["data"][0]["totalTicks"]
@@ -303,9 +304,9 @@ class Timings(commands.Cog):
         await message.reply(embed=embed_var)
 
 
-def eval_field(embed_var, option, option_name, plugins, server_properties, bukkit, spigot, paper, tuinity, purpur):
+def eval_field(embed_var, option, option_name, plugins, server_properties, bukkit, spigot, paper, tuinity, purpur, yatopia):
     dict_of_vars = {"plugins": plugins, "server_properties": server_properties, "bukkit": bukkit, "spigot": spigot,
-                    "paper": paper, "tuinity": tuinity, "purpur": purpur}
+                    "paper": paper, "tuinity": tuinity, "purpur": purpur, "yatopia": yatopia}
     try:
         for option_data in option:
             add_to_field = True

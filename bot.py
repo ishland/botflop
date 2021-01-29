@@ -34,7 +34,10 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     timings = bot.get_cog('Timings')
-    await timings.analyze_timings(message)
+    try:
+        await timings.analyze_timings(message)
+    except BaseException as error:
+        await message.reply(f"An unexpected error occurred: ${error}")
 
 
 @bot.command()
